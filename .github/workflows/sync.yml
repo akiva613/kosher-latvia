@@ -1,0 +1,24 @@
+name: Sync from Tab
+
+on:
+  schedule:
+    - cron: "0 4 * * *"   # every day at 04:00 UTC
+  workflow_dispatch: {}    # lets you run it manually from the Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pull latest data from the Tab site
+        run: python3 update_from_tab.py
+      - name: Commit changes
+        run: |
+          git config user.name "kosher-latvia-sync"
+          git config user.email "sync@users.noreply.github.com"
+          git add -A
+          git diff --quiet && git diff --staged --quiet || git commit -m "Sync from Tab $(date -u +%F)"
+          git push

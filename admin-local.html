@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>ניהול – Kosher Latvia</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1c2024;--muted:#6b7280;--line:#e3e6ea;--brand:#0f766e;--danger:#b91c1c}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:var(--card);border-bottom:1px solid var(--line);padding:12px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:5}
+h1{font-size:17px;margin:0;font-weight:700}
+button{font:inherit;padding:7px 12px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer}
+button.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+button.danger{color:var(--danger);border-color:#f3c6c6}
+button:disabled{opacity:.5;cursor:not-allowed}
+main{display:grid;grid-template-columns:minmax(280px,380px) 1fr;gap:14px;padding:14px;align-items:start}
+@media(max-width:860px){main{grid-template-columns:1fr}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+input,select,textarea{font:inherit;width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:#fff}
+textarea{min-height:70px;resize:vertical}
+label{display:block;font-size:13px;color:var(--muted);margin:8px 0 3px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.chk{display:flex;gap:6px;align-items:center;font-size:14px;color:var(--ink);margin:4px 0}
+.chk input{width:auto}
+#list{max-height:70vh;overflow:auto}
+.item{padding:7px 9px;border-radius:8px;cursor:pointer;border:1px solid transparent;font-size:14px}
+.item:hover{background:#f2f5f6}
+.item.sel{background:#e6f4f2;border-color:#b9e0da}
+.item small{color:var(--muted)}
+.badge{display:inline-block;font-size:11px;padding:1px 6px;border-radius:99px;background:#eef1f4;color:var(--muted);margin-inline-start:4px}
+.badge.out{background:#fdecec;color:#a12a2a}
+.toolbar{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.status{font-size:13px;color:var(--muted)}
+.warn{background:#fff7e6;border:1px solid #f4dfae;border-radius:8px;padding:8px 10px;font-size:13px;color:#7a5b12;margin:10px 0}
+.stores{max-height:150px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px}
+img.thumb{max-width:110px;border-radius:8px;border:1px solid var(--line);display:block;margin-top:6px}
+details summary{cursor:pointer;color:var(--muted);font-size:13px;margin:10px 0 4px}
+</style>
+</head>
+<body>
+<header>
+  <h1>ניהול אתר Kosher Latvia</h1>
+  <span id="count" class="status"></span>
+  <span style="flex:1"></span>
+  <button id="add">מוצר חדש</button>
+  <button id="saveLocal" class="primary">שמור והורד data.js</button>
+  <button id="saveGh">שמור ל-GitHub</button>
+  <button id="settings">הגדרות</button>
+</header>
+
+<main>
+  <section class="panel">
+    <div class="toolbar">
+      <input id="q" placeholder="חיפוש מוצר, מותג או חנות">
+      <select id="catFilter"><option value="">כל הקטגוריות</option></select>
+    </div>
+    <div id="list"></div>
+  </section>
+
+  <section class="panel" id="editor">
+    <p class="status">בחר מוצר מהרשימה כדי לערוך, או לחץ "מוצר חדש".</p>
+  </section>
+</main>
+
+<div id="settingsPanel" class="panel" style="display:none;margin:14px">
+  <h2 style="font-size:16px;margin:0 0 8px">הגדרות שמירה ל-GitHub (אופציונלי)</h2>
+  <div class="warn">כדי לעדכן את האתר בלי לגעת בקבצים, אפשר לחבר את עמוד הניהול לריפו GitHub. יוצרים Personal Access Token עם הרשאת contents, מדביקים כאן, והשמירה תעדכן את data.js בריפו. האתר מתעדכן אוטומטית אם הוא מתארח ב-GitHub Pages או Cloudflare Pages.</div>
+  <div class="row">
+    <div><label>בעלים (user/org)</label><input id="ghOwner" placeholder="username"></div>
+    <div><label>ריפו</label><input id="ghRepo" placeholder="kosher-latvia"></div>
+  </div>
+  <div class="row">
+    <div><label>ענף</label><input id="ghBranch" value="main"></div>
+    <div><label>נתיב data.js בריפו</label><input id="ghPath" value="data.js"></div>
+  </div>
+  <label>טוקן</label><input id="ghToken" type="password" placeholder="ghp_...">
+  <div style="margin-top:10px"><button id="saveCfg" class="primary">שמור הגדרות</button></div>
+  <p class="status">ההגדרות נשמרות בדפדפן הזה בלבד. אם אתה משתמש במחשב משותף, נקה אותן בסיום.</p>
+</div>
+
+<script src="data.js"></script>
+<script src="past-data.js"></script>
+<script>
+(function(){
+  var D = window.KOSHER_DATA || {products:[],categories:[],stores:[]};
+  var P = window.KOSHER_PAST || [];
+  var sel = null, dirty = false;
+
+  function $(id){return document.getElementById(id)}
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+
+  var cfg = {};
+  try { cfg = JSON.parse(localStorage.getItem('kl-admin-cfg')||'{}'); } catch(e){ cfg={}; }
+
+  function fillCfg(){
+    $('ghOwner').value=cfg.owner||''; $('ghRepo').value=cfg.repo||'';
+    $('ghBranch').value=cfg.branch||'main'; $('ghPath').value=cfg.path||'data.js';
+    $('ghToken').value=cfg.token||'';
+  }
+  $('settings').onclick=function(){
+    var p=$('settingsPanel'); p.style.display = p.style.display==='none'?'block':'none'; fillCfg();
+  };
+  $('saveCfg').onclick=function(){
+    cfg={owner:$('ghOwner').value.trim(),repo:$('ghRepo').value.trim(),branch:$('ghBranch').value.trim()||'main',
+         path:$('ghPath').value.trim()||'data.js',token:$('ghToken').value.trim()};
+    localStorage.setItem('kl-admin-cfg',JSON.stringify(cfg));
+    alert('ההגדרות נשמרו בדפדפן הזה.');
+  };
+
+  function cats(){ return D.categories||[]; }
+  function catName(id){ var c=cats().filter(function(x){return x.id===id})[0]; return c? (c.he||c.en||id) : id; }
+
+  var cf=$('catFilter');
+  cats().forEach(function(c){ var o=document.createElement('option'); o.value=c.id; o.textContent=(c.icon?c.icon+' ':'')+(c.he||c.en||c.id); cf.appendChild(o); });
+  cf.onchange=render;
+
+  function matches(p){
+    var q=($('q').value||'').toLowerCase().trim();
+    if(cf.value && p.cat!==cf.value) return false;
+    if(!q) return true;
+    var hay=[p.he&&p.he.name,p.en&&p.en.name,p.ru&&p.ru.name,p.brand,p.cat,(p.stores||[]).join(' ')].join(' ').toLowerCase();
+    return hay.indexOf(q)>=0;
+  }
+
+  function render(){
+    var list=$('list'), out=[], shown=0;
+    (D.products||[]).forEach(function(p){
+      if(!matches(p)) return;
+      shown++;
+      out.push('<div class="item'+(sel===p.id?' sel':'')+'" data-id="'+esc(p.id)+'">'+
+        '<div>'+(esc(p.he&&p.he.name)||esc(p.brand)||p.id)+
+        (p.outOfStock?'<span class="badge out">אזל</span>':'')+
+        (p.notMehadrin?'<span class="badge">✻</span>':'')+'</div>'+
+        '<small>'+esc(p.brand||'')+' · '+esc(catName(p.cat))+' · '+esc((p.stores||[]).join(', '))+'</small></div>');
+    });
+    list.innerHTML = out.join('') || '<p class="status">אין תוצאות</p>';
+    $('count').textContent = shown+' מוצרים מוצגים מתוך '+(D.products||[]).length;
+    Array.prototype.forEach.call(list.querySelectorAll('.item'),function(el){
+      el.onclick=function(){ select(el.getAttribute('data-id')); };
+    });
+  }
+
+  function select(id){
+    if(dirty && !confirm('יש שינויים שלא נשמרו. להמשיך?')) return;
+    sel=id; dirty=false; render(); editor();
+  }
+
+  function editor(){
+    var p=(D.products||[]).filter(function(x){return x.id===sel})[0];
+    var e=$('editor');
+    if(!p){ e.innerHTML='<p class="status">בחר מוצר מהרשימה כדי לערוך.</p>'; return; }
+    var opts=cats().map(function(c){return '<option value="'+esc(c.id)+'"'+(c.id===p.cat?' selected':'')+'>'+esc((c.icon?c.icon+' ':'')+(c.he||c.en||c.id))+'</option>'}).join('');
+    var stores=(D.stores||[]).map(function(s){
+      var on=(p.stores||[]).indexOf(s.name)>=0;
+      return '<label class="chk"><input type="checkbox" data-store="'+esc(s.name)+'"'+(on?' checked':'')+'>'+esc(s.name)+'</label>';
+    }).join('');
+    e.innerHTML =
+      '<div class="row"><div><label>שם בעברית</label><input id="f-he-name" value="'+esc(p.he&&p.he.name)+'"></div>'+
+      '<div><label>מותג</label><input id="f-brand" value="'+esc(p.brand)+'"></div></div>'+
+      '<div class="row3"><div><label>שם באנגלית</label><input id="f-en-name" value="'+esc(p.en&&p.en.name)+'"></div>'+
+      '<div><label>שם ברוסית</label><input id="f-ru-name" value="'+esc(p.ru&&p.ru.name)+'"></div>'+
+      '<div><label>קטגוריה</label><select id="f-cat">'+opts+'</select></div></div>'+
+      '<label>תיאור בעברית</label><textarea id="f-he-det">'+esc(p.he&&p.he.details)+'</textarea>'+
+      '<label>תיאור באנגלית</label><textarea id="f-en-det">'+esc(p.en&&p.en.details)+'</textarea>'+
+      '<label>תיאור ברוסית</label><textarea id="f-ru-det">'+esc(p.ru&&p.ru.details)+'</textarea>'+
+      '<div class="row"><div><label>סמלי כשרות (מופרדים בפסיק)</label><input id="f-sym" value="'+esc((p.symbols||[]).join(', '))+'"></div>'+
+      '<div><label>מזהה</label><input value="'+esc(p.id)+'" disabled></div></div>'+
+      '<label>חנויות</label><div class="stores">'+(stores||'<span class="status">אין חנויות</span>')+'</div>'+
+      '<div class="row" style="margin-top:8px">'+
+        '<label class="chk"><input type="checkbox" id="f-out"'+(p.outOfStock?' checked':'')+'> אזל מהמלאי</label>'+
+        '<label class="chk"><input type="checkbox" id="f-nat"'+(p.natural?' checked':'')+'> מוצר טבעי</label></div>'+
+      '<label class="chk"><input type="checkbox" id="f-nm"'+(p.notMehadrin?' checked':'')+'> לא מהדרין (✻)</label>'+
+      '<label>תמונה</label><div class="toolbar"><input id="f-img" value="'+esc(p.img)+'" placeholder="img/p/xxx.jpg">'+
+        '<button id="pickImg">העלה תמונה</button><input type="file" id="fileImg" accept="image/*" style="display:none"></div>'+
+      (p.img?'<img class="thumb" src="'+esc(p.img)+'" alt="">':'')+
+      '<div class="toolbar" style="margin-top:14px"><button id="apply" class="primary">עדכן מוצר</button>'+
+      '<button id="del" class="danger">מחק מוצר</button></div>'+
+      '<p class="status" id="msg"></p>';
+
+    ['f-he-name','f-brand','f-en-name','f-ru-name','f-cat','f-he-det','f-en-det','f-ru-det','f-sym','f-out','f-nat','f-nm','f-img'].forEach(function(id){
+      var el=$(id); if(el) el.addEventListener('input',function(){dirty=true});
+    });
+    Array.prototype.forEach.call(e.querySelectorAll('[data-store]'),function(el){el.addEventListener('change',function(){dirty=true})});
+
+    $('pickImg').onclick=function(){ $('fileImg').click(); };
+    $('fileImg').onchange=function(ev){
+      var f=ev.target.files[0]; if(!f) return;
+      var r=new FileReader();
+      r.onload=function(){
+        $('f-img').value=r.result; // data URI works immediately; GitHub save will upload it as a file
+        dirty=true;
+        var m=$('msg'); if(m) m.textContent='התמונה נטענה. אם תשמור ל-GitHub היא תועלה כתמונה רגילה.';
+      };
+      r.readAsDataURL(f);
+    };
+    $('apply').onclick=function(){
+      p.he=p.he||{}; p.en=p.en||{}; p.ru=p.ru||{};
+      p.he.name=$('f-he-name').value.trim(); p.brand=$('f-brand').value.trim();
+      p.en.name=$('f-en-name').value.trim(); p.ru.name=$('f-ru-name').value.trim();
+      p.cat=$('f-cat').value;
+      p.he.details=$('f-he-det').value; p.en.details=$('f-en-det').value; p.ru.details=$('f-ru-det').value;
+      p.symbols=$('f-sym').value.split(',').map(function(s){return s.trim()}).filter(Boolean);
+      p.stores=Array.prototype.filter.call(e.querySelectorAll('[data-store]'),function(el){return el.checked}).map(function(el){return el.getAttribute('data-store')});
+      p.outOfStock=$('f-out').checked; p.natural=$('f-nat').checked; p.notMehadrin=$('f-nm').checked;
+      p.img=$('f-img').value.trim();
+      dirty=false; render(); editor();
+      $('msg').textContent='המוצר עודכן בזיכרון. עכשיו שמור: הורדה או GitHub.';
+    };
+    $('del').onclick=function(){
+      if(!confirm('למחוק את המוצר?')) return;
+      D.products=D.products.filter(function(x){return x.id!==p.id});
+      sel=null; dirty=false; render(); editor();
+    };
+  }
+
+  $('add').onclick=function(){
+    if(dirty && !confirm('יש שינויים שלא נשמרו. להמשיך?')) return;
+    var id='p'+Date.now().toString(36);
+    var first=cats()[0]||{id:'natural'};
+    D.products.unshift({id:id,cat:first.id,brand:'',symbols:[],notMehadrin:false,outOfStock:false,natural:false,
+      stores:[],img:'',he:{name:'',details:''},en:{name:'',details:''},ru:{name:'',details:''},review:''});
+    sel=id; dirty=false; render(); editor();
+  };
+
+  function payload(){
+    D.updated=new Date().toISOString().slice(0,10);
+    return 'window.KOSHER_DATA = '+JSON.stringify(D)+';';
+  }
+
+  $('saveLocal').onclick=function(){
+    var blob=new Blob([payload()],{type:'text/javascript'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='data.js'; a.click();
+    setTimeout(function(){URL.revokeObjectURL(a.href)},2000);
+  };
+
+  function b64(str){
+    var bytes=new TextEncoder().encode(str), bin='';
+    for(var i=0;i<bytes.length;i++) bin+=String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  }
+  function ghApi(path,opts){
+    opts=opts||{};
+    opts.headers=Object.assign({'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json'},opts.headers||{});
+    return fetch('https://api.github.com/repos/'+cfg.owner+'/'+cfg.repo+'/contents/'+path+(opts.method==='GET'?'?ref='+encodeURIComponent(cfg.branch||'main'):''),opts)
+      .then(function(r){ if(!r.ok) throw new Error('GitHub '+r.status); return r.json(); });
+  }
+
+  $('saveGh').onclick=function(){
+    if(!cfg.owner||!cfg.repo||!cfg.token){ alert('צריך למלא הגדרות GitHub קודם (כפתור הגדרות).'); return; }
+    var msg=$('saveGh'); msg.disabled=true; msg.textContent='שומר...';
+    var content=payload(), path=cfg.path||'data.js';
+    ghApi(path,{method:'GET'}).then(function(cur){
+      return ghApi(path,{method:'PUT',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({message:'Update data.js from admin',content:b64(content),sha:cur.sha,branch:cfg.branch||'main'})});
+    }).then(function(){
+      msg.textContent='נשמר ל-GitHub'; msg.disabled=false; dirty=false;
+      alert('נשמר. האתר יתעדכן תוך דקה אם הוא מחובר לריפו.');
+    }).catch(function(err){
+      msg.textContent='שמירה ל-GitHub'; msg.disabled=false;
+      alert('השמירה נכשלה: '+err.message+'\nאפשר לשמור מקומית עם "שמור והורד data.js".');
+    });
+  };
+
+  render();
+})();
+</script>
+</body>
+</html>
